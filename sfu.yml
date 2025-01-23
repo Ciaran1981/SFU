@@ -1,0 +1,16 @@
+name: SFU
+
+channels:
+  - conda-forge
+
+
+dependencies:
+  - python=3 
+  - pip
+  - numpy
+  - scikit-learn
+  - pandas
+  - xgboost
+  - joblib
+  - skorch
+
