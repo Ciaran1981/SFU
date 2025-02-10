@@ -41,8 +41,8 @@ args = parser.parse_args()
 # read in the model list
 mdir = args.modeldir
 
-# On hpc they are here (they need updated to sklearn 1.6  (currently 1.3))
-#crobb@gruffalo.cropdiversity.ac.uk://home/crobb/projects/jhi/soils/202411_SoilForUNC/models
+#  (currently sklearn 1.3))
+# projects/jhi/soils/202411_SoilForUNC/models
 
 modelist = glob(os.path.join(mdir, '*.gz'))
 
@@ -123,7 +123,10 @@ denorm = predarr * (xmx - xmn) + xmn
 oot = pd.DataFrame(denorm, columns=ootnms)
 
 # Assume incoming file has unique ident
-ootpth = os.path.join(args.outdir, csv[:-4]+'_stg1_pred.csv')
+
+hd, tl = os.path.split(csv[:-4]+'_stg1_pred.csv')
+
+ootpth = os.path.join(args.outdir, tl)
 oot.to_csv(ootpth)
 print('file saved')
 
