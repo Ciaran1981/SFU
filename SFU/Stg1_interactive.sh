@@ -1,12 +1,5 @@
 #!/bin/bash
 
-#SBATCH --mem=1G
-
-#SBATCH --error
-
-#SBATCH --mail-user=ciaran.robb@hutton.ac.uk
-#SBATCH --mail-type==BEGIN,END,FAIL,ALL
-
 while getopts ":m:c:d:h:" x; do
   case $x in
     h) 
@@ -29,11 +22,11 @@ while getopts ":m:c:d:h:" x; do
       OUT=$OPTARG 
       ;;     
     \?)
-      echo "Stg1_sub.sh: Invalid option: -$OPTARG" >&1
+      echo "Stg1_interactive.sh: Invalid option: -$OPTARG" >&1
       exit 1
       ;;
     :)
-      echo "Stg1_sub.sh: Option -$OPTARG requires an argument." >&1
+      echo "Stg1_interactive.sh: Option -$OPTARG requires an argument." >&1
       exit 1
       ;;
   esac
