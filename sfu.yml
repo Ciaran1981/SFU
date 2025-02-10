@@ -8,7 +8,7 @@ dependencies:
   - python=3 
   - pip
   - numpy
-  - scikit-learn
+  - scikit-learn=1.3.0
   - pandas
   - xgboost
   - joblib

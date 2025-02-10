@@ -11,12 +11,26 @@ mamba env create -f sfu.yml
 
 ## To use
 
-Either:
+One of the following.
 
-`Stg1_sub.sh -m model/directory -c my/csv.csv -d Out/directory`
+A job submission:
+```bash
+SFU/Stg1_sub.sh -m model/directory -c my/csv.csv -d Out/directory
+```
 
-`source/conda activate SFU`
+Starts an interactive job then finishes
 
-`python SFU/SFU_Pred_hpc.py -m ${MODEL} -c ${CSV}  -d ${OUT}`
+```bash
+SFU/Stg1_interactive.sh -m model/directory -c my/csv.csv -d Out/directory
+```
+
+Via python interactively
+
+```bash
+source/conda activate SFU
+
+python SFU/SFU_Pred_hpc.py -m  model/directory -c my/csv.csv  -d Out/directory
+```
+
 
 
