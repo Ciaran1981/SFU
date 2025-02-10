@@ -33,7 +33,7 @@ while getopts ":m:c:d:h:" x; do
 done
 
 
-# the cpus could be increased as it is multi thread, but the dataset is tiny so hardly worth it
+
 srun --partition=short --cpus-per-task=1 --mem=1G --pty bash;
 
 source activate SFU;
