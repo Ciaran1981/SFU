@@ -177,6 +177,35 @@ corr = ['Geology6','Temp10','Rain6','TopographicRoughnessIndex','Rain10','Rain9'
          'Soil10','Rain3','LC5','Geology8','MRVBF','Temp4','Temp9','MRRTF','Rain1',
          'Temp12','Rain12','Temp3','Temp8']
 
+def list_bandnames(inras):
+    
+    """
+    Return bandnames from a raster
+
+    Parameters
+    ----------
+    
+    inras: str
+            input raster path
+            
+    Returns
+    -------
+    
+    list of bandnames
+    
+    """
+    bandlist = []
+    rds = gdal.Open(inras)
+    
+    bands = np.arange(1, rds.RasterCount+1).tolist()
+    for b in (bands):
+        rb = rds.GetRasterBand(b)
+        desc = rb.GetDescription()
+        bandlist.append(desc)
+    rds = None
+    
+    return bandlist
+
 blist = list_bandnames(inras)
 
 # get the inds and add 1 for band gdal
@@ -210,17 +239,16 @@ def _copy_dataset_config(inDataset, FMT='Gtiff', outMap='copy',
     """
 
     
-    x_pixels = inDataset.RasterXSize  # number of pixels in x
-    y_pixels = inDataset.RasterYSize  # number of pixels in y
+    x_pixels = inDataset.RasterXSize  
+    y_pixels = inDataset.RasterYSize  
     geotransform = inDataset.GetGeoTransform()
-    PIXEL_SIZE = geotransform[1]  # size of the pixel...they are square so thats ok.
+    PIXEL_SIZE = geotransform[1]  # size of the pixel...they are square 
     #if not would need w x h
     x_min = geotransform[0]
     y_max = geotransform[3]
     # x_min & y_max are the "top left" corner.
     projection = inDataset.GetProjection()
     geotransform = inDataset.GetGeoTransform()   
-    #dtype=gdal.GDT_Int32
     driver = gdal.GetDriverByName(FMT)
     
     # Set params for output raster
@@ -280,36 +308,7 @@ def blocproc(block, cols, rows):
     return coords
 
 
-def list_bandnames(inras):
-    
-    """
-    Return bandnames from a raster
-
-    Parameters
-    ----------
-    
-    inras: str
-            input raster path
-            
-    Returns
-    -------
-    
-    list of bandnames
-    
-    """
-    bandlist = []
-    rds = gdal.Open(inras)
-    
-    bands = np.arange(1, rds.RasterCount+1).tolist()
-    for b in (bands):
-        rb = rds.GetRasterBand(b)
-        desc = rb.GetDescription()
-        bandlist.append(desc)
-    rds = None
-    
-    return bandlist
-
-def proc_pixel_bloc(inras, outMap, inds, r2, blocksize=256, FMT=None,
+def proc_pixel_bloc(inras, outMap, inds, predarr, r2, xmn, xmx, blocksize=256, FMT=None,
                        dtype=gdal.GDT_Float32):
     """
     A block processing func 
@@ -328,6 +327,12 @@ def proc_pixel_bloc(inras, outMap, inds, r2, blocksize=256, FMT=None,
     
     r2: np array
         array of r2 vals corresponding to models and input bands
+    
+    xmn: np array
+            xmin array for normnalising lsps
+    
+    xmx: np array
+            xmax array for normnalising lsps
     
     FMT: string
           optional parameter - gdal readable fmt
@@ -367,9 +372,11 @@ def proc_pixel_bloc(inras, outMap, inds, r2, blocksize=256, FMT=None,
             continue              
         else:
             
+            # 2/4/25 It turns out I will need the normalised prediction and normalise the LSPs
+            
+            
             # To vectorize the subtraction below - do a bit of reshaping
-            # can the subtraction be done without rshape? surely it can??
-            X.shape = ((38,numRows*numCols))
+            X.shape = ((38, numRows*numCols))
             # # recall at this point the table is on its side
             # # now more shifting about 
             X = X.transpose() 
@@ -378,38 +385,21 @@ def proc_pixel_bloc(inras, outMap, inds, r2, blocksize=256, FMT=None,
             X[X==-99999]=0 # saga no data
             X[X==-9999]=0 # again
             X[X==1e+20]=0 # climate nodata
+            
+            # Normalise the LSPs as with broadcasting using match dim
+            X = (X - xmn) / (xmx - xmn)
+                       
             # the abs diff
-            a = np.absolute(X - denorm)
-            
-            # TODO p**0.5 results in nans due to neg values
-            # from 1-a. I think using the abs to get p is wrong, but not 
-            # sure how to solve as yet
-            
-            # IN MATTS DOC - produces later nans due to python and neg numbers?
-            #p = 1 - a
-            # I guess here abs would eliminate the neg values gen'd above
-            # which cause the nan problem later
-            # Tho the meaning is lost from the 1- right?
-            # NOT MATTS formula temp like this to get it to run
-            p = np.absolute(1-a)
-            
+            a = np.absolute(X - predarr)     
+            p = 1 - a
+          
             # we don't bother creating new rasters as this can all be
             # done in mem
             # Need the R2 of every model
-            xx = r2 * (p**0.5) # Matt has to power 0.5 produces nans
-            # but if I do the figures manually its fine 
-            #test 
-            # pp = p[0,:]
-            #  pp**0.5 nans
-            # pp[1]**0.5 nan
-            # and yet this works - so it is np array related??
-            # problem is seemingly that input data is negative - but this is
-            # inevitable
-            # -0.7382821359340888 ** 0.5
+            xx = r2 * (p**0.5) 
             
-            # Add the 38 ‘X’ values together to get S.
+            # Add the 38 ‘X’ values together to get S (sm).
             # so in this case we are summing each row
-            # nans wtf
             sm = xx.sum(axis=1)
             
             # sum of r2s
@@ -418,11 +408,6 @@ def proc_pixel_bloc(inras, outMap, inds, r2, blocksize=256, FMT=None,
             f = (sm / t)**2
             
             f.shape = (numRows, numCols)
-            
-            # predictClass = model.predict(X)
-            
-            # predictClass = np.reshape(predictClass, (numRows, numCols))
-                         
             
             outBand.WriteArray(f,j,i)
 
@@ -434,6 +419,5 @@ def proc_pixel_bloc(inras, outMap, inds, r2, blocksize=256, FMT=None,
 
 # dae it
 print('producing raster')
-proc_pixel_bloc(inras, outMap, inds, r2, blocksize=256, 
-                       dtype=gdal.GDT_Float32)
+proc_pixel_bloc(inras, outMap, inds, r2, xmx, xmn, blocksize=256)
 print('raster written')
