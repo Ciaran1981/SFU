@@ -18,15 +18,27 @@ csvhelp = ('The input csv with a header of '
            'ColR,ColG,ColB,LOI,Sand,Silt,Clay,Ex_Ca,Ex_Mg,Ex_Na,Ex_K,Ex_H,'
            'PHH2O,PHCaCl2,C,N,Depth')
 
+r2help = ("The outputdir for prediction csv, must have columns Var and r2")
+
 parser = argparse.ArgumentParser()
+
+parser.add_argument("-i", "--inraster", type=str, required=True, 
+                    help="Input raster")
+
+parser.add_argument("-o", "--outiledr", type=str, required=True, 
+                    help="Output directory - files named after input raster")
+
 parser.add_argument("-m", "--modeldir", type=str, required=True, 
                     help="Input model directory containing .gz files")
 
 parser.add_argument("-c", "--csv", type=str, required=True, 
                     help=csvhelp)
 
+parser.add_argument("-r2", "--r2csv", type=str, required=True, 
+                    help='csv with model r2s')
+
 parser.add_argument("-d", "--outdir", type=str, required=True, 
-                    help="The outputdir for prediction csv")
+                    help=r2help)
 
 parser.add_argument("-t", "--threads", type=int, 
                     required=False, default=False,
@@ -45,7 +57,7 @@ mdir = args.modeldir
 #  (currently sklearn 1.3))
 # projects/jhi/soils/202411_SoilForUNC/models
 # test
-#mdir= '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/SoilPropsPred/Chosen'
+# mdir= '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/SoilPropsPred/Chosen'
 # csv='/home/ciaran/SFU/Test/TestData.csv'
 modelist = glob(os.path.join(mdir, '*.gz'))
 
@@ -98,6 +110,7 @@ predarr.shape = (1, 38)
 
 # Denorm the prediction - hard coded due to pre-norm'd training extending
 # to the pred vals
+# Will change after test
 xmx = np.array([  1,  11.02464485, 224.80300903,  23.92248726,
                  423.4359436 , 328.13192749,  42.68635559,   1,
                  8.51279354, 287.03897095,   1,   1,
@@ -130,45 +143,21 @@ oot = pd.DataFrame(denorm, columns=ootnms)
 hd, tl = os.path.split(csv[:-4]+'_stg1_pred.csv')
 
 ootpth = os.path.join(args.outdir, tl)
-oot.to_csv(ootpth)
-print('file saved')
-
-"""
-Starting with the 38 primary model outputs and a corresponding set of 38 normalised spatial covariate datasets: 
-
-Loop through each spatial dataset. 
-
-Within each dataset, loop through each 10m grid cell. 
-
-Calculate the absolute difference A between the primary model value for that dataset, 
-and the value in the 10m grid cell. 
-
-Calculate P = 1-A. 
-
-You now have 38 new spatial datasets. 
-
-Create a new blank spatial dataset with the same size and resolution. 
-
-Loop through every 10m grid cell. 
-
-Loop through every one of the new spatial datasets. 
-
-Calculate X=W x P0.5, where W is the R2 value for the corresponding model 
-and P is the value in the spatial dataset. 
-
-Add the 38 ‘X’ values together to get S. 
-
-Calculate F=(S/T)2 where T is the sum of all 38 values of W. 
-
-You now have a new spatial dataset made up of values of F. This is the dataset to be presented to the user. 
-"""
+if not os.path.exists(ootpth):
+    oot.to_csv(ootpth)
+    print('file saved')
 
 #test
 # we need the index of each band 
-inras = '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/25kSTK/25ksmooth.vrt'
-inras = '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/25kSTK/NC7550.tif'
+# inras = '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/25kSTK/25ksmooth.vrt'
+# inras = '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/25kSTK/NC7550.tif'
 
-outMap = '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/SoilPropsPred/TST/NCtst.tif'
+# outMap = '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/SoilPropsPred/TST/NCtst.tif'
+
+inras = args.inraster
+outdr = args.outiledr
+
+outras = os.path.join(outdr, os.path.basename(inras))
 
 # unfortunately there are some abrev in the input table so this is a corrected one
 corr = ['Geology6','Temp10','Rain6','TopographicRoughnessIndex','Rain10','Rain9','Slope','Soil8',
@@ -213,6 +202,9 @@ inds = [blist.index(c)+1 for c in corr]
 
 # test
 # r2csv = '/media/ciaran/464affee-823e-4d6b-a94b-babb27eb1894/SoilPropsPred/sfpred.csv'
+
+r2csv = args.r2csv
+
 r2df = pd.read_csv(r2csv)
 
 # BTW aspect seems to be a negative r2 should dump that in future
@@ -227,9 +219,6 @@ r2 = r2sel.r2.to_numpy()
 r2 = np.expand_dims(r2, axis=0)
 
 # this now needs to be in the model/band order so can apply to array in func below
-
-# Think we can do something like the below blockwise and mis out creating the
-# intermediate datasets
 
 # Executing line at bottom
 def _copy_dataset_config(inDataset, FMT='Gtiff', outMap='copy',
@@ -372,10 +361,10 @@ def proc_pixel_bloc(inras, outMap, inds, predarr, r2, xmn, xmx, blocksize=256, F
             continue              
         else:
             
-            # 2/4/25 It turns out I will need the normalised prediction and normalise the LSPs
+            # 2/4/25 It turns out - need the normalised prediction and normalise the LSPs
+            # This will likely change beyond the intial test as models not satisfactory
             
-            
-            # To vectorize the subtraction below - do a bit of reshaping
+            # To vectorize the calcs below - do a bit of reshaping
             X.shape = ((38, numRows*numCols))
             # # recall at this point the table is on its side
             # # now more shifting about 
@@ -392,9 +381,7 @@ def proc_pixel_bloc(inras, outMap, inds, predarr, r2, xmn, xmx, blocksize=256, F
             # the abs diff
             a = np.absolute(X - predarr)     
             p = 1 - a
-          
-            # we don't bother creating new rasters as this can all be
-            # done in mem
+            
             # Need the R2 of every model
             xx = r2 * (p**0.5) 
             
@@ -419,5 +406,5 @@ def proc_pixel_bloc(inras, outMap, inds, predarr, r2, xmn, xmx, blocksize=256, F
 
 # dae it
 print('producing raster')
-proc_pixel_bloc(inras, outMap, inds, r2, xmx, xmn, blocksize=256)
+proc_pixel_bloc(inras, outras, inds, predarr, r2, xmx, xmn, blocksize=256)
 print('raster written')
