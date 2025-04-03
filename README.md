@@ -22,21 +22,16 @@ One of the following.
 
 A job submission:
 ```bash
-sbatch SFU/Stg1_sub.sh -m model/directory -c Test/TestData.csv -d Out/directory
+sbatch SFU/Stg1_sub.sh -i input/raster/directory -o output/raster/directory -m model/directory -c Test/TestData.csv -r Test/sfpred.csv -d Out/directory
 ```
 
-Starts an interactive job then finishes
-
-```bash
-SFU/Stg1_interactive.sh -m model/directory -c Test/TestData.csv -d Out/directory
-```
 
 Via python interactively
 
 ```bash
 source/conda activate SFU
 
-python SFU/SFU_Pred_hpc.py -m  model/directory -c Test/TestData.csv  -d Out/directory
+python SFU/SFU_Pred_hpc.py -i input/raster.tif -o output/raster/directory -m  model/directory -c Test/TestData.csv -r2 Test/sfpred.csv  -d Out/directory
 ```
 
 
